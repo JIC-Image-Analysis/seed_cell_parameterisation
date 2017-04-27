@@ -1,6 +1,7 @@
 """seed_cell_size_2d analysis."""
 
 import os
+import json
 import logging
 import argparse
 
@@ -12,10 +13,13 @@ from scipy.misc import imsave
 
 from skimage.filters import threshold_adaptive
 
+import skimage.segmentation
+
 from jicbioimage.core.image import Image
 from jicbioimage.core.transform import transformation
 from jicbioimage.core.io import AutoName, AutoWrite
 from jicbioimage.segment import connected_components
+from jicbioimage.segment import SegmentedImage
 
 from jicbioimage.transform import (
     invert,
@@ -34,6 +38,35 @@ def identity(image):
     return image
 
 
+@transformation
+def clear_border(image):
+    cleared = skimage.segmentation.clear_border(image)
+
+    return cleared.view(SegmentedImage)
+
+
+@transformation
+def remove_small_regions(segmentation, threshold=1000):
+
+    for id in segmentation.identifiers:
+        if segmentation.region_by_identifier(id).area < threshold:
+            segmentation.remove_region(id)
+
+    return segmentation
+
+
+def parameterise_cells(segmentation):
+
+    cell_information = []
+    for cell_id in segmentation.identifiers:
+        if cell_id != 0:
+            cell_region = segmentation.region_by_identifier(cell_id)
+            cell_entry = dict(identifier=cell_id, area=cell_region.area)
+            cell_information.append(cell_entry)
+
+    return cell_information
+
+
 def preprocess_and_segment(image):
 
     thresholded = threshold_adaptive(image, block_size=91)
@@ -44,6 +77,8 @@ def preprocess_and_segment(image):
     image = invert(image)
 
     segmentation = connected_components(image, background=False)
+    segmentation = clear_border(segmentation)
+    segmentation = remove_small_regions(segmentation)
 
     return segmentation
 
@@ -57,7 +92,14 @@ def analyse_file(fpath, output_directory):
 
     segmentation = preprocess_and_segment(image)
 
-    print(segmentation.identifiers)
+    cell_info = parameterise_cells(segmentation)
+
+    headers = cell_info[0].keys()
+
+    print(','.join(headers))
+    for entry in cell_info:
+        data = [entry[h] for h in headers]
+        print(','.join(str(d) for d in data))
 
 
 def analyse_dataset(dataset_dir, output_dir):
