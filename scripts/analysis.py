@@ -15,6 +15,8 @@ from skimage.filters import threshold_adaptive
 
 import skimage.segmentation
 
+from skimage.measure import regionprops
+
 from jicbioimage.core.image import Image
 from jicbioimage.core.transform import transformation
 from jicbioimage.core.io import AutoName, AutoWrite
@@ -56,13 +58,33 @@ def remove_small_regions(segmentation, threshold=1000):
 
 
 def parameterise_cells(segmentation):
+    # all_props = regionprops(segmentation)
+
+    # for props in all_props:
+    #     print(props.major_axis_length, props.minor_axis_length)
+
+    # cell_information = []
+    # for cell_id in segmentation.identifiers:
+    #     if cell_id != 0:
+    #         cell_region = segmentation.region_by_identifier(cell_id)
+    #         region_props = regionprops(cell_region)[0]
+    #         print(props.major_axis_length)
+    #         cell_entry = dict(identifier=cell_id, area=cell_region.area)
+    #         cell_information.append(cell_entry)
+
+    all_cell_props = regionprops(segmentation)
 
     cell_information = []
-    for cell_id in segmentation.identifiers:
-        if cell_id != 0:
-            cell_region = segmentation.region_by_identifier(cell_id)
-            cell_entry = dict(identifier=cell_id, area=cell_region.area)
-            cell_information.append(cell_entry)
+    for props in all_cell_props:
+
+        cell_entry = dict(
+            width=int(props.minor_axis_length),
+            length=int(props.major_axis_length),
+            area=props.area,
+            identifier=props.label
+        )
+
+        cell_information.append(cell_entry)
 
     return cell_information
 
@@ -91,6 +113,7 @@ def analyse_file(fpath, output_directory):
     print(image.shape)
 
     segmentation = preprocess_and_segment(image)
+
 
     cell_info = parameterise_cells(segmentation)
 
