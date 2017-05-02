@@ -11,8 +11,7 @@ import numpy as np
 
 from scipy.misc import imsave
 
-from skimage.filters import threshold_adaptive
-
+import skimage.filters
 import skimage.segmentation
 
 from skimage.measure import regionprops
@@ -57,6 +56,14 @@ def remove_small_regions(segmentation, threshold=1000):
     return segmentation
 
 
+@transformation
+def threshold_adaptive(image, block_size=91):
+
+    thresholded = skimage.filters.threshold_adaptive(image, block_size)
+
+    return thresholded
+
+
 def parameterise_cells(segmentation):
     # all_props = regionprops(segmentation)
 
@@ -91,9 +98,10 @@ def parameterise_cells(segmentation):
 
 def preprocess_and_segment(image):
 
-    thresholded = threshold_adaptive(image, block_size=91)
 
-    image = remove_small_objects(thresholded)
+    image = identity(image)
+    image = threshold_adaptive(image)
+    image = remove_small_objects(image)
     image = invert(image)
     image = remove_small_objects(image)
     image = invert(image)
@@ -105,24 +113,48 @@ def preprocess_and_segment(image):
     return segmentation
 
 
+def write_cell_info_to_csv(cell_info, csv_path):
+    """Take the list of dictionaries provided by cell_info and write it in
+    tabular form to the CSV file csv_path."""
+
+    # Turn this into a variable to keep a consistent ordering
+    headers = cell_info[0].keys()
+
+    with open(csv_path, 'w') as fh:
+        header_line = ','.join(headers) + '\n'
+        fh.write(header_line)
+
+        for entry in cell_info:
+            data = [str(entry[h]) for h in headers]
+            line = ','.join(data) + '\n'
+            fh.write(line)
+
+
 def analyse_file(fpath, output_directory):
     """Analyse a single file."""
     logging.info("Analysing file: {}".format(fpath))
     image = Image.from_file(fpath)
+
     print("analysing {}".format(fpath))
-    print(image.shape)
 
     segmentation = preprocess_and_segment(image)
 
-
     cell_info = parameterise_cells(segmentation)
 
-    headers = cell_info[0].keys()
+    csv_path = os.path.join(output_directory, 'results.csv')
 
-    print(','.join(headers))
-    for entry in cell_info:
-        data = [entry[h] for h in headers]
-        print(','.join(str(d) for d in data))
+    write_cell_info_to_csv(cell_info, csv_path)
+
+
+def output_name_from_dataset_and_identifier(dataset, identifier):
+
+    rel_path = dataset.item_path_from_hash(identifier)
+
+    basename = os.path.basename(rel_path)
+
+    name, ext = os.path.splitext(basename)
+
+    return name
 
 
 def analyse_dataset(dataset_dir, output_dir):
@@ -130,11 +162,16 @@ def analyse_dataset(dataset_dir, output_dir):
     dataset = dtool.DataSet.from_path(dataset_dir)
     logging.info("Analysing files in dataset: {}".format(dataset.name))
 
-    i = dataset.identifiers[0]
+    for i in dataset.identifiers:
 
-    rel_path = dataset.item_path_from_hash(i)
+        rel_path = dataset.item_path_from_hash(i)
 
-    analyse_file(rel_path, output_dir)
+        output_basename = output_name_from_dataset_and_identifier(dataset, i)
+        output_dirname = os.path.join(output_dir, output_basename)
+        if not os.path.isdir(output_dirname):
+            os.mkdir(output_dirname)
+
+        analyse_file(rel_path, output_dirname)
 
 
 def main():
