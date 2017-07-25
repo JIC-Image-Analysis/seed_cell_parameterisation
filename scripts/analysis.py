@@ -65,19 +65,6 @@ def threshold_adaptive(image, block_size=91):
 
 
 def parameterise_cells(segmentation):
-    # all_props = regionprops(segmentation)
-
-    # for props in all_props:
-    #     print(props.major_axis_length, props.minor_axis_length)
-
-    # cell_information = []
-    # for cell_id in segmentation.identifiers:
-    #     if cell_id != 0:
-    #         cell_region = segmentation.region_by_identifier(cell_id)
-    #         region_props = regionprops(cell_region)[0]
-    #         print(props.major_axis_length)
-    #         cell_entry = dict(identifier=cell_id, area=cell_region.area)
-    #         cell_information.append(cell_entry)
 
     all_cell_props = regionprops(segmentation)
 
@@ -97,7 +84,6 @@ def parameterise_cells(segmentation):
 
 
 def preprocess_and_segment(image):
-
 
     image = identity(image)
     image = threshold_adaptive(image)
@@ -157,39 +143,37 @@ def output_name_from_dataset_and_identifier(dataset, identifier):
     return name
 
 
-def analyse_dataset(dataset_dir, output_dir):
+def analyse_dataset(dataset_dir, i, output_dir):
     """Analyse all the files in the dataset."""
     dataset = dtool.DataSet.from_path(dataset_dir)
-    logging.info("Analysing files in dataset: {}".format(dataset.name))
 
-    for i in dataset.identifiers:
+    rel_path = dataset.item_path_from_hash(i)
 
-        rel_path = dataset.item_path_from_hash(i)
+    output_basename = output_name_from_dataset_and_identifier(dataset, i)
+    output_dirname = os.path.join(output_dir, output_basename)
+    if not os.path.isdir(output_dirname):
+        os.mkdir(output_dirname)
 
-        output_basename = output_name_from_dataset_and_identifier(dataset, i)
-        output_dirname = os.path.join(output_dir, output_basename)
-        if not os.path.isdir(output_dirname):
-            os.mkdir(output_dirname)
-
-        analyse_file(rel_path, output_dirname)
+    analyse_file(rel_path, output_dirname)
 
 
 def main():
     # Parse the command line arguments.
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("dataset_dir", help="Input dataset directory")
-    parser.add_argument("output_dir", help="Output directory")
-    parser.add_argument("--debug", default=False, action="store_true",
+    parser.add_argument("--dataset-path", help="Input dataset directory")
+    parser.add_argument("--output-directory", help="Output directory")
+    parser.add_argument("--identifier", help="Identifier to analyse")
+    parser.add_argument("--debug", default=True, action="store_true",
                         help="Write out intermediate images")
     args = parser.parse_args()
 
-    if not os.path.isdir(args.dataset_dir):
+    if not os.path.isdir(args.dataset_path):
         parser.error("Not a directory: {}".format(args.dataset_dir))
 
     # Create the output directory if it does not exist.
-    if not os.path.isdir(args.output_dir):
-        os.mkdir(args.output_dir)
-    AutoName.directory = args.output_dir
+    if not os.path.isdir(args.output_directory):
+        os.mkdir(args.output_directory)
+    AutoName.directory = args.output_directory
 
     # Only write out intermediate images in debug mode.
     if not args.debug:
@@ -197,7 +181,7 @@ def main():
 
     # Setup a logger for the script.
     log_fname = "audit.log"
-    log_fpath = os.path.join(args.output_dir, log_fname)
+    log_fpath = os.path.join(args.output_directory, log_fname)
     logging_level = logging.INFO
     if args.debug:
         logging_level = logging.DEBUG
@@ -207,7 +191,7 @@ def main():
     logging.info("Script name: {}".format(__file__))
     logging.info("Script version: {}".format(__version__))
 
-    analyse_dataset(args.dataset_dir, args.output_dir)
+    analyse_dataset(args.dataset_path, args.identifier, args.output_directory)
 
 if __name__ == "__main__":
     main()
