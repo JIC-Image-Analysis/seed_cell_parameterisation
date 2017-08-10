@@ -71,13 +71,16 @@ def parameterise_cells(segmentation):
     cell_information = []
     for props in all_cell_props:
 
+        centroid_row, centroid_col = props.centroid
         cell_entry = dict(
             width=int(props.minor_axis_length),
             length=int(props.major_axis_length),
             area=props.area,
             identifier=props.label,
             perimeter=props.perimeter,
-            convex_area=props.convex_area
+            convex_area=props.convex_area,
+            centroid_row=centroid_row,
+            centroid_col=centroid_col
         )
 
         cell_information.append(cell_entry)
@@ -105,8 +108,12 @@ def write_cell_info_to_csv(cell_info, csv_path):
     """Take the list of dictionaries provided by cell_info and write it in
     tabular form to the CSV file csv_path."""
 
-    # Turn this into a variable to keep a consistent ordering
+    # Turn this into a variable to keep a consistent ordering. Sort and make
+    # sure that identifier is first
     headers = cell_info[0].keys()
+    headers.sort()
+    headers.remove('identifier')
+    headers.insert(0, 'identifier')
 
     with open(csv_path, 'w') as fh:
         header_line = ','.join(headers) + '\n'
