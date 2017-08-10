@@ -1,8 +1,7 @@
----
-
-version: 0.0.1
-authors:
-  - Matthew Hartley
-  - Tjelvar Olsson
-start: 2017-04-19
+authors: [Matthew Hartley, Tjelvar Olsson]
+container: seed_cell_size_2d
+dataset: derived_from_example_lif_2017
 end: sometime
+name: seed_cell_size_2d
+start: 2017-04-19
+version: 0.0.1
