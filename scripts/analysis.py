@@ -5,8 +5,6 @@ import json
 import logging
 import argparse
 
-import dtool
-
 import numpy as np
 
 from scipy.misc import imsave
@@ -27,6 +25,8 @@ from jicbioimage.transform import (
     threshold_otsu,
     remove_small_objects
 )
+
+from jicbioimage.illustrate import AnnotatedImage
 
 __version__ = "0.0.1"
 
@@ -75,7 +75,9 @@ def parameterise_cells(segmentation):
             width=int(props.minor_axis_length),
             length=int(props.major_axis_length),
             area=props.area,
-            identifier=props.label
+            identifier=props.label,
+            perimeter=props.perimeter,
+            convex_area=props.convex_area
         )
 
         cell_information.append(cell_entry)
@@ -116,63 +118,72 @@ def write_cell_info_to_csv(cell_info, csv_path):
             fh.write(line)
 
 
+def write_segmented_image_as_rgb(segmented_image, output_fpath):
+
+    segmentation_as_rgb = segmented_image.unique_color_image
+
+    with open(output_fpath, 'wb') as f:
+        f.write(segmentation_as_rgb.png())
+
+
+def generate_label_image(segmentation):
+
+    base_for_ann = 100 * (segmentation > 0)
+    ann = AnnotatedImage.from_grayscale(base_for_ann)
+
+    for sid in segmentation.identifiers:
+        c = segmentation.region_by_identifier(sid).centroid
+        ann.text_at(
+            str(sid),
+            map(int, c),
+            size=30,
+            color=(255, 255, 0),
+            center=True
+        )
+
+    return ann
+
+
 def analyse_file(fpath, output_directory):
     """Analyse a single file."""
     logging.info("Analysing file: {}".format(fpath))
     image = Image.from_file(fpath)
 
-    print("analysing {}".format(fpath))
+    image_output_fpath = os.path.join(output_directory, 'original.png')
+    with open(image_output_fpath, 'wb') as fh:
+        fh.write(image.png())
 
     segmentation = preprocess_and_segment(image)
 
+    false_colour_fpath = os.path.join(output_directory, 'false_color.png')
+    with open(false_colour_fpath, 'wb') as fh:
+        fh.write(segmentation.png())
+
+    rgb_segmentation_fpath = os.path.join(output_directory, 'segmentation.png')
+    write_segmented_image_as_rgb(segmentation, rgb_segmentation_fpath)
+
     cell_info = parameterise_cells(segmentation)
+    csv_fpath = os.path.join(output_directory, 'results.csv')
+    write_cell_info_to_csv(cell_info, csv_fpath)
 
-    csv_path = os.path.join(output_directory, 'results.csv')
-
-    write_cell_info_to_csv(cell_info, csv_path)
-
-
-def output_name_from_dataset_and_identifier(dataset, identifier):
-
-    rel_path = dataset.item_path_from_hash(identifier)
-
-    basename = os.path.basename(rel_path)
-
-    name, ext = os.path.splitext(basename)
-
-    return name
-
-
-def analyse_dataset(dataset_dir, i, output_dir):
-    """Analyse all the files in the dataset."""
-    dataset = dtool.DataSet.from_path(dataset_dir)
-
-    rel_path = dataset.item_path_from_hash(i)
-
-    output_basename = output_name_from_dataset_and_identifier(dataset, i)
-    output_dirname = os.path.join(output_dir, output_basename)
-    if not os.path.isdir(output_dirname):
-        os.mkdir(output_dirname)
-
-    analyse_file(rel_path, output_dirname)
+    label_image = generate_label_image(segmentation)
+    label_image_fpath = os.path.join(output_directory, 'labels.png')
+    with open(label_image_fpath, 'wb') as fh:
+        fh.write(label_image.png())
 
 
 def main():
     # Parse the command line arguments.
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--dataset-path", help="Input dataset directory")
-    parser.add_argument("--output-directory", help="Output directory")
-    parser.add_argument("--identifier", help="Identifier to analyse")
-    parser.add_argument("--debug", default=True, action="store_true",
+    parser.add_argument("--input-file", "-i", help="Input file")
+    parser.add_argument("--output-directory", "-o", help="Output directory")
+    parser.add_argument("--debug", default=False, action="store_true",
                         help="Write out intermediate images")
     args = parser.parse_args()
 
-    if not os.path.isdir(args.dataset_path):
-        parser.error("Not a directory: {}".format(args.dataset_dir))
-
-    # Create the output directory if it does not exist.
     if not os.path.isdir(args.output_directory):
-        os.mkdir(args.output_directory)
+        parser.error("Not a directory: {}".format(args.output_directory))
+
     AutoName.directory = args.output_directory
 
     # Only write out intermediate images in debug mode.
@@ -191,7 +202,7 @@ def main():
     logging.info("Script name: {}".format(__file__))
     logging.info("Script version: {}".format(__version__))
 
-    analyse_dataset(args.dataset_path, args.identifier, args.output_directory)
+    analyse_file(args.input_file, args.output_directory)
 
 if __name__ == "__main__":
     main()
