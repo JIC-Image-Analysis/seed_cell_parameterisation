@@ -7,7 +7,8 @@ from dtool_azure import AzureDataSet, AzureProtoDataSet
 
 
 @click.command()
-def main():
+@click.option('--config-path')
+def main(config_path=None):
 
     with open('analysis.yml') as fh:
         analyis_config = yaml.load(fh)
@@ -15,7 +16,7 @@ def main():
     input_uuid = analyis_config['input_dataset']
     output_uuid = analyis_config['output_dataset']
 
-    input_dataset = AzureDataSet.from_uri(input_uuid)
+    input_dataset = AzureDataSet.from_uri(input_uuid, config_path=config_path)
     output_dataset = AzureProtoDataSet.from_uri(output_uuid)
 
     input_identifiers = set(input_dataset.identifiers)
