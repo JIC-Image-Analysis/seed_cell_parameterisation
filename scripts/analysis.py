@@ -211,5 +211,6 @@ def main():
 
     analyse_file(args.input_file, args.output_directory)
 
+
 if __name__ == "__main__":
     main()
