@@ -10,7 +10,7 @@ from dtoolcore import DataSet
 
 def identifiers_where_overlay_is_true(dataset, overlay_name):
 
-    overlay = dataset.access_overlays()[overlay_name]
+    overlay = dataset.get_overlay(overlay_name)
 
     selected = [identifier
                 for identifier in dataset.identifiers
@@ -22,8 +22,8 @@ def identifiers_where_overlay_is_true(dataset, overlay_name):
 def create_is_csv_overlay(dataset):
 
     def is_csv(identifier):
-        path = dataset.item_from_identifier(identifier)['path']
-        _, ext = os.path.splitext(path)
+        relpath = dataset.item_properties(identifier)['relpath']
+        _, ext = os.path.splitext(relpath)
         return ext == '.csv'
 
     is_csv_overlay = {
@@ -31,7 +31,7 @@ def create_is_csv_overlay(dataset):
         for identifier in dataset.identifiers
     }
 
-    dataset.persist_overlay("is_csv", is_csv_overlay)
+    dataset.put_overlay("is_csv", is_csv_overlay)
 
 
 def generate_header_list(unsorted_keys):
@@ -86,24 +86,36 @@ def build_master_csv(fpaths_and_extra_data, output_csv_fpath):
 @click.command()
 @click.argument('dataset-path')
 def main(dataset_path):
-    dataset = DataSet.from_path(dataset_path)
+    dataset = DataSet.from_uri(dataset_path)
 
     create_is_csv_overlay(dataset)
 
     def info_from_identifier(identifier):
-        path = dataset.item_from_identifier(identifier)['path']
-        label1, compound, _ = path.split('/')
-        label2, label3 = compound.split('.')
+        relpath = dataset.item_properties(identifier)['relpath']
+        # label1 = "5A_CB_Rep3_T2"
+        # compound = relpath
+        # compound, _ = relpath.split('/')
+
+        print(relpath)
+
+        label1, compound, _ = relpath.split('/')
+
+        try:
+            label2, label3 = compound.rsplit('-', 1)
+        except ValueError:
+            label2, label3 = "?", "?"
 
         return label1, label2, label3
 
     fpaths_and_extra_data = [
         (
-            dataset.abspath_from_identifier(identifier),
+            dataset.item_content_abspath(identifier),
             info_from_identifier(identifier)
         )
         for identifier in identifiers_where_overlay_is_true(dataset, "is_csv")
     ]
+
+    import pprint; pprint.pprint(fpaths_and_extra_data)
 
     build_master_csv(fpaths_and_extra_data, 'all_cells.csv')
 
