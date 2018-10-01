@@ -1,5 +1,14 @@
 # seed_cell_size_2d
 
+## Running the pipeline
+
+To run the pipeline:
+
+1. Convert input data (in microscope image format, e.g. LIF or CZI) into a dtool dataset.
+2. Run the create_overlays.py script on this dataset.
+3. Run the convertlif container/tool to generate a new dataset with TIFF images.
+4. Run the seedcellsize container to analyse this dataset, producing segmentations and measurements.
+
 ## Introduction
 
 This image analysis project has been setup to take advantage of a technology
